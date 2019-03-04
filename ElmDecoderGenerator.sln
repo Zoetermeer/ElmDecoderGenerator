@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ElmDecoderGenerator", "ElmDecoderGenerator\ElmDecoderGenerator.csproj", "{190ECB77-B831-43A0-B634-260F43386A73}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ElmDecoderGeneratorTests", "ElmDecoderGeneratorTests\ElmDecoderGeneratorTests.csproj", "{FD86A2B7-21BD-40E5-87FB-DE82D3CA59CC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{190ECB77-B831-43A0-B634-260F43386A73}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{190ECB77-B831-43A0-B634-260F43386A73}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{190ECB77-B831-43A0-B634-260F43386A73}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{190ECB77-B831-43A0-B634-260F43386A73}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FD86A2B7-21BD-40E5-87FB-DE82D3CA59CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FD86A2B7-21BD-40E5-87FB-DE82D3CA59CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FD86A2B7-21BD-40E5-87FB-DE82D3CA59CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FD86A2B7-21BD-40E5-87FB-DE82D3CA59CC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
