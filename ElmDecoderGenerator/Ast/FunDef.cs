@@ -15,7 +15,12 @@ namespace ElmDecoderGenerator.Ast {
         
         public override void Write(CodeBuffer buf) {
             buf.AppendLine(Type);
-            buf.AppendLine($"{Name} {string.Join(' ', Params)} =");
+
+            var headerItems = new List<string>();
+            headerItems.Add(Name);
+            headerItems.AddRange(Params);
+            headerItems.Add("=");
+            buf.AppendLine(string.Join(' ', headerItems));
             buf.Indented(() => buf.AppendLine(Body));
         }
 

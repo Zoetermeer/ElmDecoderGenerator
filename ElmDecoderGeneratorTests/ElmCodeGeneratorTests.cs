@@ -38,5 +38,36 @@ namespace ElmDecoderGeneratorTests {
             
             Assert.Equal(expected, code);
         }
+
+        [Fact]
+        public void ItGeneratesEnumDecoders() {
+            var gen = new ElmCodeGenerator(Assembly.GetExecutingAssembly());
+            gen.AddDecodeFun(typeof(SampleEnum));
+
+            var code = gen.GetCode();
+            var expected =
+@"decodeSampleEnumValue : String -> Decoder SampleEnum
+decodeSampleEnumValue s =
+  case s of
+    ""Option1"" ->
+      Decode.succeed SampleEnumOption1
+    ""Option2"" ->
+      Decode.succeed SampleEnumOption2
+    ""Option3"" ->
+      Decode.succeed SampleEnumOption3
+    _ ->
+      Decode.fail (""Unknown value: "" ++ s)
+
+
+decodeSampleEnum : Decoder SampleEnum
+decodeSampleEnum =
+  string
+  |> andThen decodeSampleEnumValue
+
+
+";
+            
+            Assert.Equal(expected, code);
+        }
     }
 }
