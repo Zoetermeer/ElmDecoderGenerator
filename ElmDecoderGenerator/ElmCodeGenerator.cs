@@ -11,9 +11,11 @@ using Newtonsoft.Json;
 namespace ElmDecoderGenerator {
     public class ElmCodeGenerator {
         private Assembly assembly;
+        private string elmModuleName;
 
-        public ElmCodeGenerator(Assembly assembly) {
+        public ElmCodeGenerator(Assembly assembly, string elmModuleName) {
             this.assembly = assembly;
+            this.elmModuleName = elmModuleName;
         }
 
         public Dictionary<string, ElmAstNode> TypeDefs { get; } = new Dictionary<string, ElmAstNode>();
@@ -93,6 +95,7 @@ namespace ElmDecoderGenerator {
             }
             else {
                 var pipeline = new PipelineExpr();
+                pipeline.Exprs.Add(new FunApp(new Id("Decode.succeed")) {Rands = {new Id(type.Name)}});
                 foreach (var prop in type.GetProperties()) {
                     var jsonAttrs = prop.GetCustomAttributes(typeof(JsonPropertyAttribute));
                     if (jsonAttrs.Any()) {
@@ -118,7 +121,23 @@ namespace ElmDecoderGenerator {
                 buf.AppendLine();
             }
 
-            return buf.ToString();
+            var sb = new StringBuilder();
+            sb.AppendLine($"module {elmModuleName} exposing (..)");
+            sb.AppendLine(
+                "import Json.Decode as Decode exposing (Decoder, andThen, bool, field, float, int, list, nullable, string)");
+            sb.AppendLine("import Json.Decode.Pipeline exposing (..)");
+            sb.AppendLine("import Time exposing (..)");
+            sb.AppendLine();
+            sb.AppendLine(
+                @"
+decodePosixTime : Decoder Time.Posix
+decodePosixTime =
+  int |> andThen (millisToPosix >> Decode.succeed)
+");
+            
+            sb.Append(buf);
+
+            return sb.ToString();
         }
 
         private static bool IsJsonType(Type type) {
@@ -145,13 +164,25 @@ namespace ElmDecoderGenerator {
             if (type == typeof(bool)) {
                 return Elm.Types.BOOL;
             }
+
+            if (type == typeof(DateTime)) {
+                return Elm.Types.TIME_POSIX;
+            }
             
             if (type.IsPrimitive)
                 throw new ArgumentException($".NET type {type.Name} has no Elm type mapping.");
 
+
+            if (type.IsGenericType) {
+                Type genType = type.GetGenericTypeDefinition();
+                if (genType == typeof(Nullable<>)) {
+                    return $"{Elm.Types.MAYBE} {ElmType(type.GetGenericArguments()[0])}";
+                }
+
+            }
             Type elementType = null;
             if (GetCollectionElementType(type, out elementType)) {
-                return $"{Elm.Types.LIST} {ElmType(elementType)}";
+                return $"({Elm.Types.LIST} {ElmType(elementType)})";
             }
 
             return type.Name;
@@ -190,13 +221,25 @@ namespace ElmDecoderGenerator {
             if (type == typeof(bool)) {
                 return Elm.Decoders.BOOL;
             }
+
+            if (type == typeof(DateTime)) {
+                return "decodePosixTime";
+            }
             
             if (type.IsPrimitive)
                 throw new ArgumentException($".NET type {type.Name} has no Elm type mapping.");
+
+            if (type.IsGenericType) {
+                Type genType = type.GetGenericTypeDefinition();
+                if (genType == typeof(Nullable<>)) {
+                    return $"(nullable {DecodeFunName(type.GetGenericArguments()[0])})";
+                }
+
+            }
             
             Type elementType = null;
             if (GetCollectionElementType(type, out elementType)) {
-                return $"{Elm.Decoders.LIST} {DecodeFunName(elementType)}";
+                return $"({Elm.Decoders.LIST} {DecodeFunName(elementType)})";
             }
 
             return $"decode{type.Name}";

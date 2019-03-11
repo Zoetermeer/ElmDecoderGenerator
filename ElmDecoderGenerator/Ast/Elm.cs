@@ -9,6 +9,8 @@ namespace ElmDecoderGenerator.Ast {
           public const string STRING = "String";
           public const string DECODER = "Decoder";
           public const string LIST = "List";
+          public const string TIME_POSIX = "Time.Posix";
+          public const string MAYBE = "Maybe";
         }
 
         public static class Decoders {

@@ -24,7 +24,7 @@ namespace ElmDecoderGeneratorTests {
         
         [Fact]
         public void ItGeneratesRecordDefs() {
-            var gen = new ElmCodeGenerator(Assembly.GetExecutingAssembly());
+            var gen = new ElmCodeGenerator(Assembly.GetExecutingAssembly(), "SomeModule");
             gen.AddTypeDef(typeof(SampleObject));
 
             var code = gen.GetCode();
@@ -41,7 +41,7 @@ namespace ElmDecoderGeneratorTests {
 
         [Fact]
         public void ItGeneratesEnumDecoders() {
-            var gen = new ElmCodeGenerator(Assembly.GetExecutingAssembly());
+            var gen = new ElmCodeGenerator(Assembly.GetExecutingAssembly(), "SomeModule");
             gen.AddDecodeFun(typeof(SampleEnum));
 
             var code = gen.GetCode();
