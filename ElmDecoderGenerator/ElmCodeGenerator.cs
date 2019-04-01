@@ -13,6 +13,8 @@ namespace ElmDecoderGenerator {
         private Assembly assembly;
         private string elmModuleName;
 
+        private const BindingFlags PROP_FLAGS = BindingFlags.Instance | BindingFlags.Public | BindingFlags.FlattenHierarchy;
+
         public ElmCodeGenerator(Assembly assembly, string elmModuleName) {
             this.assembly = assembly;
             this.elmModuleName = elmModuleName;
@@ -46,7 +48,7 @@ namespace ElmDecoderGenerator {
                 //Otherwise, a class
                 var t = new RecordDef(name);
                 def = t;
-                foreach (var prop in type.GetProperties()) {
+                foreach (var prop in type.GetProperties(PROP_FLAGS)) {
                     var jsonAttrs = prop.GetCustomAttributes(typeof(JsonPropertyAttribute));
                     if (jsonAttrs.Any()) {
                         t.Fields.Add(CamelCase(prop.Name), ElmType(prop.PropertyType));
@@ -55,6 +57,7 @@ namespace ElmDecoderGenerator {
                         if (prop.PropertyType.IsEnum) {
                             AddTypeDef(prop.PropertyType);
                             AddDecodeFun(prop.PropertyType);
+                            AddToStringFun(prop.PropertyType);
                         }
                     } 
                 }
@@ -63,11 +66,39 @@ namespace ElmDecoderGenerator {
             TypeDefs.Add(name, def);
         }
 
+        private void AddToStringFun(Type type) {
+            if (!type.IsEnum) return;
+            
+            var funName = ToStringFunName(type);
+            if (FunDefs.ContainsKey(funName)) return;
+            
+            var caseExp = new CaseExp(new Id("v"));
+            foreach (var alt in type.GetEnumNames()) {
+                caseExp.Cases.Add(new Tuple<ElmAstNode, ElmAstNode>(
+                    new Id(AdtAlternativeName(type, alt)),
+                    new StringLiteral(alt)
+                    ));
+            }
+
+            var fun = new FunDef(funName, $"{funName} : {type.Name} -> {Elm.Types.STRING}");
+            fun.Params.Add("v");
+            fun.Body = caseExp;
+            
+            FunDefs.Add(funName, fun);
+        }
+
         public void AddDecodeFun(Type type) {
-            string funName = DecodeFunName(type);
+            var funName = DecodeFunName(type);
+            if (FunDefs.ContainsKey(funName))
+                return;
+            
             var f = new FunDef(funName, $"{funName} : {Elm.Types.DECODER} {type.Name}");
             if (type.IsEnum) {
                 var innerFunName = $"{funName}Value";
+                if (FunDefs.ContainsKey(innerFunName))
+                    return;
+                
+                
                 var innerF = new FunDef(innerFunName, $"{innerFunName} : {Elm.Types.STRING} -> {Elm.Types.DECODER} {type.Name}");
                 innerF.Params.Add("s");
                 
@@ -96,10 +127,12 @@ namespace ElmDecoderGenerator {
             else {
                 var pipeline = new PipelineExpr();
                 pipeline.Exprs.Add(new FunApp(new Id("Decode.succeed")) {Rands = {new Id(type.Name)}});
-                foreach (var prop in type.GetProperties()) {
+                foreach (var prop in type.GetProperties(PROP_FLAGS)) {
                     var jsonAttrs = prop.GetCustomAttributes(typeof(JsonPropertyAttribute));
-                    if (jsonAttrs.Any()) {
-                        pipeline.Exprs.Add(new FunApp(new Id("required")) { Rands = { new StringLiteral(SnakeCase(prop.Name)), new Id(DecodeFunName(prop.PropertyType)) } });
+                    var jsonAttr = jsonAttrs.FirstOrDefault() as JsonPropertyAttribute;
+                    if (null != jsonAttr) {
+                        var jsonFieldName = jsonAttr.PropertyName ?? SnakeCase(prop.Name);
+                        pipeline.Exprs.Add(new FunApp(new Id("required")) { Rands = { new StringLiteral(jsonFieldName), new Id(DecodeFunName(prop.PropertyType)) } });
                     } 
                 }
 
@@ -112,11 +145,13 @@ namespace ElmDecoderGenerator {
         public string GetCode() {
             var buf = new CodeBuffer();
             foreach (var entry in TypeDefs) {
+                buf.AppendLine($"-- Type: {entry.Key}");
                 entry.Value.Write(buf);
                 buf.AppendLine();
             }
 
             foreach (var entry in FunDefs) {
+                buf.AppendLine($"-- Function: {entry.Key}");
                 entry.Value.Write(buf);
                 buf.AppendLine();
             }
@@ -154,6 +189,10 @@ decodePosixTime =
             }
             
             if (type == typeof(double)) {
+                return Elm.Types.FLOAT;
+            }
+
+            if (type == typeof(Single)) {
                 return Elm.Types.FLOAT;
             }
             
@@ -214,6 +253,10 @@ decodePosixTime =
                 return Elm.Decoders.FLOAT;
             }
             
+            if (type == typeof(Single)) {
+                return Elm.Decoders.FLOAT;
+            }
+            
             if (type == typeof(string)) {
                 return Elm.Decoders.STRING;
             }
@@ -243,7 +286,10 @@ decodePosixTime =
             }
 
             return $"decode{type.Name}";
+        }
 
+        private static string ToStringFunName(Type type) {
+            return $"{CamelCase(type.Name)}ToString";
         }
 
         private static string CamelCase(string name) {
