@@ -31,6 +31,7 @@ namespace ElmDecoderGenerator {
           foreach (var t in jsonTypes) {
               AddTypeDef(t);
               AddDecodeFun(t);
+              AddEncodeFun(t);
           }
         }
 
@@ -51,12 +52,13 @@ namespace ElmDecoderGenerator {
                 foreach (var prop in type.GetProperties(PROP_FLAGS)) {
                     var jsonAttrs = prop.GetCustomAttributes(typeof(JsonPropertyAttribute));
                     if (jsonAttrs.Any()) {
-                        t.Fields.Add(CamelCase(prop.Name), ElmType(prop.PropertyType));
+                        t.Fields.Add(ElmRecordFieldName(prop), ElmType(prop.PropertyType));
                         
                         //If the property type is an enum, generate an ADT for it
                         if (prop.PropertyType.IsEnum) {
                             AddTypeDef(prop.PropertyType);
                             AddDecodeFun(prop.PropertyType);
+                            AddEncodeFun(prop.PropertyType);
                             AddToStringFun(prop.PropertyType);
                         }
                     } 
@@ -85,6 +87,44 @@ namespace ElmDecoderGenerator {
             fun.Body = caseExp;
             
             FunDefs.Add(funName, fun);
+        }
+
+        public void AddEncodeFun(Type type) {
+            var funName = EncodeFunName(type);
+            if (FunDefs.ContainsKey(funName))
+                return;
+
+            var f = new FunDef(funName, $"{funName} : {type.Name} -> {Elm.Types.ENCODER_VALUE}");
+            f.Params.Add("v");
+            if (type.IsEnum) {
+                var encodeApp = new FunApp(new Id(Elm.Encoders.STRING))
+                    { Rands = { new FunApp(new Id(ToStringFunName(type))) {Rands = { new Id("v") } } } };
+
+                f.Body = encodeApp;
+            } else {
+                var fieldTups = new List<ElmAstNode>();
+                foreach (var prop in type.GetProperties(PROP_FLAGS)) {
+                    var jsonAttrs = prop.GetCustomAttributes(typeof(JsonPropertyAttribute));
+                    if (jsonAttrs.FirstOrDefault() is JsonPropertyAttribute jsonAttr) {
+                        var jsonFieldName = jsonAttr.PropertyName ?? SnakeCase(prop.Name);
+                        var keyExp = new StringLiteral(jsonFieldName);
+                        var valExp = new FunApp(new Id(EncodeFunName(prop.PropertyType))) {
+                            Rands = {
+                                new Id($"v.{ElmRecordFieldName(prop)}")
+                            }
+                        };
+                        
+                        fieldTups.Add(new TupleExp(keyExp, valExp));
+                    } 
+                }
+                
+                f.Body = new FunApp(
+                    new Id(Elm.Encoders.OBJECT),
+                    new ListExp(fieldTups.ToArray())
+                );
+            }
+            
+            FunDefs.Add(funName, f);
         }
 
         public void AddDecodeFun(Type type) {
@@ -161,6 +201,7 @@ namespace ElmDecoderGenerator {
             sb.AppendLine(
                 "import Json.Decode as Decode exposing (Decoder, andThen, bool, field, float, int, list, nullable, string)");
             sb.AppendLine("import Json.Decode.Pipeline exposing (..)");
+            sb.AppendLine("import Json.Encode as Encode");
             sb.AppendLine("import Time exposing (..)");
             sb.AppendLine();
             sb.AppendLine(
@@ -286,6 +327,46 @@ decodePosixTime =
             }
 
             return $"decode{type.Name}";
+        }
+
+        private static string EncodeFunName(Type type) {
+            if (type == typeof(int)) {
+                return Elm.Encoders.INT;
+            }
+            
+            if (type == typeof(double)) {
+                return Elm.Encoders.FLOAT;
+            }
+            
+            if (type == typeof(Single)) {
+                return Elm.Encoders.FLOAT;
+            }
+            
+            if (type == typeof(string)) {
+                return Elm.Encoders.STRING;
+            }
+            
+            if (type == typeof(bool)) {
+                return Elm.Encoders.BOOL;
+            }
+
+            if (type == typeof(DateTime)) {
+                return "encodePosixTime";
+            }
+            
+            if (type.IsPrimitive)
+                throw new ArgumentException($".NET type {type.Name} has no Elm type mapping.");
+            
+            Type elementType = null;
+            if (GetCollectionElementType(type, out elementType)) {
+                return $"({Elm.Encoders.LIST} {EncodeFunName(elementType)})";
+            }
+
+            return $"encode{type.Name}";
+        }
+
+        private static string ElmRecordFieldName(PropertyInfo property) {
+            return CamelCase(property.Name);
         }
 
         private static string ToStringFunName(Type type) {

@@ -11,6 +11,7 @@ namespace ElmDecoderGenerator.Ast {
           public const string LIST = "List";
           public const string TIME_POSIX = "Time.Posix";
           public const string MAYBE = "Maybe";
+          public const string ENCODER_VALUE = "Encode.Value";
         }
 
         public static class Decoders {
@@ -20,6 +21,16 @@ namespace ElmDecoderGenerator.Ast {
             public const string STRING = "string";
             public const string LIST = "list";
             public const string ANDTHEN = "andThen";
+        }
+
+        public static class Encoders {
+            public const string BOOL = "Encode.bool";
+            public const string FLOAT = "Encode.float";
+            public const string INT = "Encode.int";
+            public const string STRING = "Encode.string";
+            public const string LIST = "Encode.list";
+            public const string NULL = "Encode.null";
+            public const string OBJECT = "Encode.object";
         }
     }
 }
